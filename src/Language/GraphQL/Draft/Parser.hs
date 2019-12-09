@@ -79,11 +79,14 @@ operationTypeParser =
   <|> AST.OperationTypeMutation <$ tok "mutation"
   <|> AST.OperationTypeSubscription <$ tok "subscription"
 
+operationNameParser :: Parser AST.OperationName
+operationNameParser = fmap AST.OperationName nameParser
+
 typedOperationDef :: Parser AST.TypedOperationDefinition
 typedOperationDef =
   AST.TypedOperationDefinition
   <$> operationTypeParser
-  <*> optional nameParser
+  <*> optional operationNameParser
   <*> optempty variableDefinitions
   <*> optempty directives
   <*> selectionSet

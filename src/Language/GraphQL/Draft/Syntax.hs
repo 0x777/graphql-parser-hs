@@ -18,6 +18,7 @@ module Language.GraphQL.Draft.Syntax
   , partitionExDefs
   , OperationDefinition(..)
   , OperationType(..)
+  , OperationName(..)
   , TypedOperationDefinition(..)
   , TypeSystemDefinition(..)
   , SchemaDefinition(..)
@@ -139,25 +140,27 @@ newtype ExecutableDocument
   deriving (Ord, Show, Eq, Lift, Hashable)
 
 data ExecutableDefinition
-  = ExecutableDefinitionOperation OperationDefinition
-  | ExecutableDefinitionFragment FragmentDefinition
+  = ExecutableDefinitionOperation !OperationDefinition
+  | ExecutableDefinitionFragment !FragmentDefinition
   deriving (Ord, Show, Eq, Lift, Generic)
 
 instance Hashable ExecutableDefinition
 
 partitionExDefs
   :: [ExecutableDefinition]
-  -> ([SelectionSet], [TypedOperationDefinition], [FragmentDefinition])
+  -> ([TypedOperationDefinition], [FragmentDefinition])
 partitionExDefs =
-  foldr f ([], [], [])
+  foldr f ([], [])
   where
-    f d (selSets, ops, frags) = case d of
+    f d (ops, frags) = case d of
       ExecutableDefinitionOperation (OperationDefinitionUnTyped t) ->
-        (t:selSets, ops, frags)
+        let operation = TypedOperationDefinition
+                        OperationTypeQuery Nothing [] [] t
+        in (operation:ops, frags)
       ExecutableDefinitionOperation (OperationDefinitionTyped t) ->
-        (selSets, t:ops, frags)
+        (t:ops, frags)
       ExecutableDefinitionFragment frag ->
-        (selSets, ops, frag:frags)
+        (ops, frag:frags)
 
 data TypeSystemDefinition
   = TypeSystemDefinitionSchema !SchemaDefinition
@@ -202,10 +205,14 @@ data OperationDefinition
 
 instance Hashable OperationDefinition
 
+newtype OperationName
+  = OperationName { _unOperationName :: Name }
+  deriving (Ord, Show, Eq, Lift, Generic, Hashable, J.ToJSON, J.FromJSON)
+
 data TypedOperationDefinition
   = TypedOperationDefinition
   { _todType                :: !OperationType
-  , _todName                :: !(Maybe Name)
+  , _todName                :: !(Maybe OperationName)
   , _todVariableDefinitions :: ![VariableDefinition]
   , _todDirectives          :: ![Directive]
   , _todSelectionSet        :: !SelectionSet

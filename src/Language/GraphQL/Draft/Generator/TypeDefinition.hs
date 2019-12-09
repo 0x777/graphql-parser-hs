@@ -33,10 +33,12 @@ genOperationDefinition =
 genTypedOperationDefinition :: Gen TypedOperationDefinition
 genTypedOperationDefinition = TypedOperationDefinition
                               <$> genOperationType
-                              <*> Gen.maybe genName
+                              <*> Gen.maybe genOperationName
                               <*> Gen.list (Range.linear 1 11) genVariableDefinition
                               <*> genDirectives
                               <*> genSelectionSet
+  where
+    genOperationName = OperationName <$> genName
 
 genVariableDefinition :: Gen VariableDefinition
 genVariableDefinition = VariableDefinition

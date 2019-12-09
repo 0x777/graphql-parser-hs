@@ -60,7 +60,7 @@ operationType = \case
 -- TODO: add horizontal nesting
 node :: (Printer a) => TypedOperationDefinition -> a
 node (TypedOperationDefinition _ name vars dirs sels) =
-  nameP (fromMaybe "" name)
+  nameP (maybe "" _unOperationName name)
   <> optempty variableDefinitions vars
   <> optempty directives dirs
   <> charP ' '
