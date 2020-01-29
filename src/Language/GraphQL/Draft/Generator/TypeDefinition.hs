@@ -86,16 +86,23 @@ genTypeDefinition =
              , TypeDefinitionInputObject <$> genInputObjectTypeDefinition
              ]
 
-genNullability :: Gen Nullability
-genNullability = Nullability <$> Gen.bool
+-- genNullability :: Gen Nullability
+-- genNullability = Nullability <$> Gen.bool
 
-genListType :: Gen ListType
+genListType :: Gen (ListType NamedType)
 genListType = ListType <$> genGType
+
+genNonNullType :: Gen (NonNullType NamedType)
+genNonNullType =
+  Gen.choice [ NonNullNamed <$> genNamedType
+             , NonNullList <$> genListType
+             ]
 
 genGType :: Gen GType
 genGType =
-  Gen.choice [ TypeNamed <$> genNullability <*> genNamedType
-             , TypeList <$> genNullability <*> genListType
+  Gen.choice [ TypeNamed <$> genNamedType
+             , TypeList <$> genListType
+             , TypeNonNull <$> genNonNullType
              ]
 
 genScalarTypeDefinition :: Gen ScalarTypeDefinition

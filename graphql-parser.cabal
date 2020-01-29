@@ -67,6 +67,7 @@ library
     , base >=4.7 && <5
     , bytestring
     , containers
+    , nonempty-containers
     , filepath
     , hedgehog
     , prettyprinter
@@ -80,6 +81,7 @@ library
     , unordered-containers
     , insert-ordered-containers
     , vector
+    , monad-validate >= 1.2.0.0
 
 test-suite graphql-parser-test
   import: common

@@ -52,10 +52,9 @@ instance Printer (Doc Text) where
   selectionSetP = selectionSet
   {-# INLINE selectionSetP #-}
 
-
 node :: TypedOperationDefinition -> Doc Text
 node (TypedOperationDefinition _ name vars dirs sels) =
-  pretty (fromMaybe "" name)
+  pretty (maybe "" _unOperationName name)
   <> optempty variableDefinitions vars
   <> optempty directives dirs
   <+> selectionSet sels

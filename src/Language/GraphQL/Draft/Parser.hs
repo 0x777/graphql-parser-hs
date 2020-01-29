@@ -281,9 +281,20 @@ directive = AST.Directive
 
 graphQLType :: Parser AST.GType
 graphQLType =
-    (flip AST.TypeList <$> listType <*> nullability)
-    <|> (flip AST.TypeNamed <$> namedType <*> nullability)
-    <?> "graphQLType error!"
+  withNullability AST.TypeList (AST.TypeNonNull . AST.NonNullList) listType
+  <|> withNullability AST.TypeNamed (AST.TypeNonNull. AST.NonNullNamed) namedType
+  <?> "graphQLType error!"
+  where
+    withNullability f g p = do
+      -- run the given parser
+      v <- p
+      -- check if there is a bang after it
+      bangM <- optional (tok "!")
+      return $ case bangM of
+        -- if so, run the second parser
+        Just _  -> g v
+        -- if nullable, run the first parser
+        Nothing -> f v
 
 parseGraphQLType :: Text -> Either Text AST.GType
 parseGraphQLType = runParser graphQLType
@@ -291,13 +302,8 @@ parseGraphQLType = runParser graphQLType
 namedType :: Parser AST.NamedType
 namedType = AST.NamedType <$> nameParser
 
-listType :: Parser AST.ListType
+listType :: Parser (AST.ListType AST.NamedType)
 listType = AST.ListType <$> brackets graphQLType
-
-nullability :: Parser AST.Nullability
-nullability =
-  (tok "!" $> AST.Nullability False)
-  <|> pure (AST.Nullability True)
 
 -- * Type Definition
 

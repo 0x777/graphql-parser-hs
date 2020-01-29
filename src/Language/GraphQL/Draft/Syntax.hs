@@ -48,20 +48,21 @@ module Language.GraphQL.Draft.Syntax
   , ObjectFieldC
   , DefaultValue
   , Directive(..)
-  , GType(..)
-  , getBaseType
-  , Nullability(..)
-  , showGT
+  , TypeStructure(..)
+  , GType
   , ToGType(..)
-  , toLT
-  , toNT
+  , getBaseType
+  , showGT
   , showLT
   , isNullable
   , isNotNull
   , isListType
   , showNT
   , NamedType(..)
+  , NonNullType(..)
+  , ToNonNullType(..)
   , ListType(..)
+  , toListType
   , Description(..)
   , TypeDefinition(..)
   , ObjectTypeDefinition(..)
@@ -392,65 +393,84 @@ data Directive
 
 instance Hashable Directive
 
--- * Type Reference
+data NonNullType a
+  = NonNullList !(ListType a)
+  | NonNullNamed !a
+  deriving (Show, Ord, Eq, Lift, Generic, Functor, Foldable, Traversable)
 
-newtype Nullability
-  = Nullability { unNullability :: Bool }
-  deriving (Show, Ord, Eq, Lift, Generic, Hashable)
+instance ToGType (NonNullType NamedType) where
+  toGraphQLType = TypeNonNull
 
-data GType
-  = TypeNamed !Nullability !NamedType
-  | TypeList !Nullability !ListType
-  deriving (Eq, Ord, Show, Lift, Generic)
+class ToNonNullType t where
+  toNonNullType :: t -> NonNullType NamedType
 
-getBaseType :: GType -> NamedType
-getBaseType = \case
-  TypeNamed _ namedType -> namedType
-  TypeList _ listType -> getBaseType $ unListType listType
+instance (Hashable a) => Hashable (NonNullType a)
 
-class ToGType a where
-  toGT :: a -> GType
+newtype ListType a
+  = ListType { unListType :: TypeStructure a }
+  deriving (Show, Ord, Eq, Lift, Generic, Hashable, Functor, Foldable, Traversable)
 
-toNT :: (ToGType a) => a -> GType
-toNT ty = case toGT ty of
-  TypeNamed _ nt -> TypeNamed (Nullability False) nt
-  TypeList _ lt  -> TypeList (Nullability False) lt
+instance ToNonNullType (ListType NamedType) where
+  toNonNullType =  NonNullList
+
+instance ToGType (ListType NamedType) where
+  toGraphQLType = TypeList
+
+toListType :: (ToGType t) => t -> ListType NamedType
+toListType = ListType . toGraphQLType
+
+data TypeStructure a
+  = TypeNamed !a
+  | TypeList !(ListType a)
+  | TypeNonNull !(NonNullType a)
+  deriving (Show, Ord, Eq, Lift, Generic, Functor, Foldable, Traversable)
+
+instance (Hashable a) => Hashable (TypeStructure a)
+
+type GType = TypeStructure NamedType
+
+class ToGType t where
+  toGraphQLType :: t -> GType
 
 instance ToGType GType where
-  toGT t = t
+  toGraphQLType t = t
+
+getBaseType :: TypeStructure a -> a
+getBaseType = \case
+  TypeNamed l -> l
+  TypeList (ListType ty) -> getBaseType ty
+  TypeNonNull nonNullType -> case nonNullType of
+    NonNullList (ListType ty) -> getBaseType ty
+    NonNullNamed l -> l
 
 instance J.ToJSON GType where
   toJSON = J.toJSON . showGT
 
-instance Hashable GType
-
 showGT :: GType -> Text
 showGT = \case
-  TypeNamed nullability nt -> showNT nt <> showNullable nullability
-  TypeList nullability lt  -> showLT lt <> showNullable nullability
-
-showNullable :: Nullability -> Text
-showNullable = bool "!" "" . unNullability
+  TypeNamed namedType -> showNT namedType
+  TypeList listType -> showLT listType
+  TypeNonNull nonNullType -> (<> "!") $ case nonNullType of
+    NonNullList listType -> showLT listType
+    NonNullNamed namedType -> showNT namedType
 
 showNT :: NamedType -> Text
 showNT = unName . unNamedType
 
-showLT :: ListType -> Text
+showLT :: ListType NamedType -> Text
 showLT lt = "[" <> showGT (unListType lt) <> "]"
-
-toLT :: (ToGType a) => a -> ListType
-toLT = ListType . toGT
 
 isNullable :: GType -> Bool
 isNullable = \case
-  (TypeNamed nullability _) -> unNullability nullability
-  (TypeList nullability _)  -> unNullability nullability
+  TypeNamed _   -> False
+  TypeList _    -> False
+  TypeNonNull _ -> True
 
 isListType :: GType -> Bool
 isListType = \case
-  (TypeList _ _)  -> True
-  (TypeNamed _ _) -> False
-
+  TypeNamed _   -> False
+  TypeList _    -> True
+  TypeNonNull _ -> False
 
 isNotNull :: GType -> Bool
 isNotNull = not . isNullable
@@ -460,15 +480,11 @@ newtype NamedType
   deriving (Eq, Ord, Show, Hashable, Lift, J.ToJSON,
             J.ToJSONKey, J.FromJSON, J.FromJSONKey)
 
+instance ToNonNullType NamedType where
+  toNonNullType = NonNullNamed
+
 instance ToGType NamedType where
-  toGT = TypeNamed (Nullability True)
-
-newtype ListType
-  = ListType {unListType :: GType }
-  deriving (Eq, Ord, Show, Lift, Hashable)
-
-instance ToGType ListType where
-  toGT = TypeList (Nullability True)
+  toGraphQLType = TypeNamed
 
 -- * Type definition
 

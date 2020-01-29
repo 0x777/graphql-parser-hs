@@ -142,16 +142,15 @@ defaultValue v = " =" <> charP ' ' <> valueC v
 -- | Type Reference
 
 graphQLType :: (Printer a) => GType -> a
-graphQLType (TypeNamed n x) = nameP (unNamedType x) <> nonNull n
-graphQLType (TypeList  n x) = listType x <> nonNull n
+graphQLType = \case
+  TypeNamed namedType -> nameP $ unNamedType namedType
+  TypeList listType  -> listTypeP listType
+  TypeNonNull nonNullType -> (<> charP '!') $ case nonNullType of
+    NonNullList listType -> listTypeP listType
+    NonNullNamed namedType -> nameP $ unNamedType namedType
 
-listType :: (Printer a) => ListType -> a
-listType (ListType ty) = charP '[' <> graphQLType ty <> charP ']'
-
-nonNull :: (Printer a) => Nullability -> a
-nonNull n = bool (charP '!') mempty $ unNullability n
-
--- | Primitives
+listTypeP :: (Printer a) => ListType NamedType -> a
+listTypeP (ListType ty) = charP '[' <> graphQLType ty <> charP ']'
 
 value :: (Printer a) => Value -> a
 value = \case
